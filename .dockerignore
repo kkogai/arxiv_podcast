@@ -1,0 +1,104 @@
+# Git関連
+.git
+.gitignore
+
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 仮想環境
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# テスト・カバレッジ
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# IDE設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# サムネイル
+._*
+
+# その他のmacOS関連
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ログファイル
+*.log
+logs/
+
+# 実行時に生成されるデータ（必要に応じて調整）
+data/*/
+!data/.gitkeep
+
+# 設定ファイル（機密情報含む）
+.env
+.env.local
+.env.production
+
+# Dockerファイル（ビルドコンテキストには含めない）
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# README・ドキュメント（軽量化のため除外、必要に応じてコメントアウト）
+README.md
+CLAUDE.md
+docs/
+
+# 一時ファイル
+tmp/
+temp/

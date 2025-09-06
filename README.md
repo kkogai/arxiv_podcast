@@ -105,11 +105,64 @@ uv run pytest -v
 uv run pytest test_config.py -v
 ```
 
+## 🐳 Docker使用方法
+
+### Docker Composeで実行（推奨）
+
+```bash
+# 1. 環境変数設定
+cp .env.example .env
+# .envファイルでGEMINI_API_KEYを設定
+
+# 2. 台本生成のみ実行
+docker-compose up arxiv-podcast
+
+# 3. 完全処理（台本→音声→MP3まで一括実行）
+docker-compose --profile full up arxiv-podcast-full
+
+# 4. バックグラウンド実行
+docker-compose up -d arxiv-podcast
+```
+
+### 直接Docker実行
+
+```bash
+# イメージビルド
+docker build -t arxiv-podcast .
+
+# 台本生成のみ
+docker run --rm \
+  -v $(pwd)/data:/app/data \
+  -e GEMINI_API_KEY=your_api_key \
+  arxiv-podcast
+
+# 完全処理（音声生成まで）
+docker run --rm \
+  -v $(pwd)/data:/app/data \
+  -e GEMINI_API_KEY=your_api_key \
+  arxiv-podcast python main.py
+
+# 高品質MP3で生成
+docker run --rm \
+  -v $(pwd)/data:/app/data \
+  -e GEMINI_API_KEY=your_api_key \
+  arxiv-podcast python main.py --bitrate 320k --keep-wav
+```
+
 ## 🎙️ 実行例
 
 ```bash
-# 1. 論文取得と台本生成
+# 1. 全工程一括実行（台本→音声→MP3）
 uv run python main.py
+
+# 2. 台本生成のみ
+uv run python main.py --skip-audio
+
+# 3. 高品質MP3で生成
+uv run python main.py --bitrate 320k
+
+# 4. WAVファイルを保持して生成
+uv run python main.py --keep-wav
 
 # 出力例:
 # === arxiv論文ポッドキャスト生成システム ===
@@ -129,14 +182,17 @@ uv run python main.py
 # → data/20241206/2409.12345.md に保存完了
 # 論文 2 (arxiv:2409.12346): 台本生成中...
 # → data/20241206/2409.12346.md に保存完了
+# 8. ポッドキャスト音声を生成中...
+# → 2409.12345: 音声生成完了
+# → 2409.12346: 音声生成完了
+# 9. WAVファイルをMP3に変換中...
+# → podcast_2409.12345_000.wav: MP3変換完了
+# → podcast_2409.12346_000.wav: MP3変換完了
 # 
 # === 処理完了 ===
 # 生成されたファイル:
 #   - data/20241206/abstract.md (論文要約)
 #   - 2件のポッドキャスト台本
-# 
-# 次に output_podcast.py を使用してポッドキャストを生成してください。
-
-# 2. 音声ファイル生成
-uv run python output_podcast.py data/20241206/
+#   - 音声ファイル (data/20241206/audio/)
+#   - MP3ファイル (WAVファイルは削除されました)
 ```

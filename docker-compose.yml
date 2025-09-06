@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  arxiv-podcast:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arxiv-podcast:latest
+    container_name: arxiv-podcast-generator
+    
+    # 環境変数
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_SUMMARY=${GEMINI_MODEL_SUMMARY:-gemini-2.0-flash-exp}
+      - GEMINI_MODEL_PODCAST=${GEMINI_MODEL_PODCAST:-gemini-2.0-flash-exp}
+      - GEMINI_MODEL_TTS=${GEMINI_MODEL_TTS:-gemini-2.5-flash-preview-tts}
+    
+    # ボリュームマウント（データ永続化）
+    volumes:
+      - ./data:/app/data
+      - ./prompt:/app/prompt:ro  # プロンプトファイルは読み取り専用
+    
+    # 作業ディレクトリ
+    working_dir: /app
+    
+    # デフォルトコマンド（台本生成のみ）
+    command: ["python", "main.py", "--skip-audio"]
+    
+    # リソース制限
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # 完全処理用のサービス（音声生成まで実行）
+  arxiv-podcast-full:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arxiv-podcast:latest
+    container_name: arxiv-podcast-full
+    profiles: ["full"]  # プロファイル指定で明示的に実行
+    
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_SUMMARY=${GEMINI_MODEL_SUMMARY:-gemini-2.0-flash-exp}
+      - GEMINI_MODEL_PODCAST=${GEMINI_MODEL_PODCAST:-gemini-2.0-flash-exp}
+      - GEMINI_MODEL_TTS=${GEMINI_MODEL_TTS:-gemini-2.5-flash-preview-tts}
+    
+    volumes:
+      - ./data:/app/data
+      - ./prompt:/app/prompt:ro
+    
+    working_dir: /app
+    
+    # 完全処理（台本→音声→MP3）
+    command: ["python", "main.py"]
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+# 名前付きボリューム（必要に応じて使用）
+volumes:
+  arxiv_data:
+    driver: local
+
+# ネットワーク（将来的にWeb UIを追加する場合）
+networks:
+  arxiv_network:
+    driver: bridge
