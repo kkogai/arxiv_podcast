@@ -103,8 +103,8 @@ def find_wav_files(audio_dir: str) -> List[str]:
     if not os.path.isdir(audio_dir):
         raise NotADirectoryError(f"指定されたパスはディレクトリではありません: {audio_dir}")
     
-    # podcast_*.wavファイルを検索
-    pattern = os.path.join(audio_dir, "podcast_*.wav")
+    # *.wavファイルを検索
+    pattern = os.path.join(audio_dir, "*.wav")
     wav_files = glob.glob(pattern)
     
     return sorted(wav_files)
