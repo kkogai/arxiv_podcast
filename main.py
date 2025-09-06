@@ -1,6 +1,8 @@
 """arxiv論文ポッドキャスト生成システム - メインエントリーポイント"""
 
 import sys
+import argparse
+import os
 
 from arxiv_scraper import fetch_arxiv_new_papers, parse_paper_urls_from_html
 from config import get_all_gemini_models, validate_environment
@@ -24,6 +26,19 @@ from podcast_generator import (
     save_podcast_script,
     validate_podcast_script_format,
 )
+from output_podcast import (
+    find_podcast_scripts,
+    load_podcast_script,
+    create_output_directory,
+    generate_audio_from_script,
+)
+from convert_wav_to_mp3 import (
+    check_ffmpeg_available,
+    find_wav_files,
+    convert_wav_to_mp3,
+    create_mp3_path,
+    get_file_size_mb,
+)
 
 
 def check_environment() -> bool:
@@ -46,8 +61,152 @@ def check_environment() -> bool:
     return True
 
 
+def generate_audio_and_convert_to_mp3(data_dir: str, bitrate: str = "192k", keep_wav: bool = False) -> bool:
+    """
+    ポッドキャスト音声生成とMP3変換を実行する
+    
+    Args:
+        data_dir (str): データディレクトリのパス
+        bitrate (str): MP3のビットレート
+        keep_wav (bool): WAVファイルを保持するか
+        
+    Returns:
+        bool: 処理が成功した場合True
+    """
+    try:
+        # 8. 音声生成処理
+        print("8. ポッドキャスト音声を生成中...")
+        
+        # 台本ファイルを検索
+        script_files = find_podcast_scripts(data_dir)
+        
+        if not script_files:
+            print("   台本ファイルが見つかりませんでした。音声生成をスキップします。")
+            return False
+        
+        print(f"   対象台本ファイル: {len(script_files)}件")
+        
+        # 出力ディレクトリ作成
+        output_dir = create_output_directory(data_dir)
+        print(f"   音声ファイル出力先: {output_dir}")
+        
+        successful_audio_count = 0
+        
+        # 各台本ファイルを処理
+        for file_path, arxiv_number in script_files:
+            try:
+                # 台本読み込み
+                script = load_podcast_script(file_path)
+                
+                # 音声生成
+                print(f"   {arxiv_number}: 音声生成中...")
+                success = generate_audio_from_script(script, arxiv_number, output_dir)
+                
+                if success:
+                    successful_audio_count += 1
+                    print(f"   → {arxiv_number}: 音声生成完了")
+                else:
+                    print(f"   → {arxiv_number}: 音声生成失敗")
+                    
+            except Exception as e:
+                print(f"   {arxiv_number}: 音声生成エラー ({str(e)})")
+                continue
+        
+        print(f"   音声生成完了: {successful_audio_count}/{len(script_files)} ファイル")
+        
+        if successful_audio_count == 0:
+            print("   音声ファイルが生成されませんでした。MP3変換をスキップします。")
+            return False
+        
+        # 9. MP3変換処理
+        print("9. WAVファイルをMP3に変換中...")
+        
+        # FFmpegの利用可能性チェック
+        if not check_ffmpeg_available():
+            print("   警告: FFmpegが見つかりません。MP3変換をスキップします。")
+            print("   FFmpegをインストールしてください:")
+            print("     macOS: brew install ffmpeg")
+            print("     Ubuntu: apt install ffmpeg")
+            return True  # 音声生成は成功したのでTrueを返す
+        
+        # WAVファイルを検索
+        wav_files = find_wav_files(output_dir)
+        
+        if not wav_files:
+            print("   WAVファイルが見つかりませんでした。")
+            return True
+        
+        print(f"   対象WAVファイル: {len(wav_files)}件")
+        print(f"   ビットレート: {bitrate}")
+        
+        # 変換実行
+        successful_mp3_count = 0
+        total_wav_size = 0.0
+        total_mp3_size = 0.0
+        
+        for wav_path in wav_files:
+            mp3_path = create_mp3_path(wav_path)
+            
+            # ファイルサイズを記録（変換前）
+            wav_size = get_file_size_mb(wav_path)
+            total_wav_size += wav_size
+            
+            if convert_wav_to_mp3(wav_path, mp3_path, bitrate):
+                successful_mp3_count += 1
+                
+                # ファイルサイズを記録（変換後）
+                mp3_size = get_file_size_mb(mp3_path)
+                total_mp3_size += mp3_size
+                
+                print(f"   → {os.path.basename(wav_path)}: MP3変換完了")
+                
+                # 元のWAVファイルを削除（keep_wavが指定されていない場合）
+                if not keep_wav:
+                    try:
+                        os.remove(wav_path)
+                        print(f"   → WAVファイルを削除: {os.path.basename(wav_path)}")
+                    except OSError as e:
+                        print(f"   → WAVファイル削除エラー: {e}")
+            else:
+                print(f"   → {os.path.basename(wav_path)}: MP3変換失敗")
+        
+        print(f"   MP3変換完了: {successful_mp3_count}/{len(wav_files)} ファイル")
+        
+        if successful_mp3_count > 0:
+            compression_ratio = (1 - total_mp3_size / total_wav_size) * 100 if total_wav_size > 0 else 0
+            print(f"   ファイルサイズ: {total_wav_size:.1f}MB → {total_mp3_size:.1f}MB")
+            print(f"   圧縮率: {compression_ratio:.1f}%")
+        
+        return True
+        
+    except Exception as e:
+        print(f"音声生成・MP3変換エラー: {str(e)}")
+        return False
+
+
 def main() -> None:
     """メイン処理フロー"""
+    parser = argparse.ArgumentParser(
+        description="ArXiv論文ポッドキャスト生成システム（台本生成→音声生成→MP3変換まで一括実行）"
+    )
+    parser.add_argument(
+        "--skip-audio",
+        action="store_true",
+        help="音声生成とMP3変換をスキップして台本生成のみ実行"
+    )
+    parser.add_argument(
+        "--bitrate",
+        default="192k",
+        help="MP3ビットレート（デフォルト: 192k）"
+    )
+    parser.add_argument(
+        "--keep-wav",
+        action="store_true",
+        help="MP3変換後もWAVファイルを保持する"
+    )
+    
+    args = parser.parse_args()
+    
     try:
         print("=== arxiv論文ポッドキャスト生成システム ===")
         
@@ -116,12 +275,41 @@ def main() -> None:
                 print(f"   論文 {i+1}: エラーが発生、スキップ ({str(e)})")
                 continue
         
-        # 8. 完了メッセージ
+        print(f"   台本生成完了: {generated_count}件")
+        
+        if generated_count == 0:
+            print("ポッドキャスト台本が生成されませんでした。処理を終了します。")
+            return
+        
+        # 8-9. 音声生成・MP3変換処理（オプション）
+        if not args.skip_audio:
+            data_dir_path = f"data/{current_date}"
+            audio_success = generate_audio_and_convert_to_mp3(
+                data_dir_path, 
+                args.bitrate, 
+                args.keep_wav
+            )
+            
+            if not audio_success:
+                print("音声生成処理でエラーが発生しましたが、台本生成は完了しています。")
+        
+        # 完了メッセージ
         print("\n=== 処理完了 ===")
         print("生成されたファイル:")
         print(f"  - data/{current_date}/abstract.md (論文要約)")
         print(f"  - {generated_count}件のポッドキャスト台本")
-        print("\n次に output_podcast.py を使用してポッドキャストを生成してください。")
+        
+        if not args.skip_audio:
+            print(f"  - 音声ファイル (data/{current_date}/audio/)")
+            if not args.keep_wav:
+                print("  - MP3ファイル (WAVファイルは削除されました)")
+            else:
+                print("  - WAVおよびMP3ファイル")
+        else:
+            print("\n音声生成を実行するには:")
+            print("  uv run python main.py (または)")
+            print(f"  uv run python output_podcast.py data/{current_date}/")
+            print(f"  uv run python convert_wav_to_mp3.py data/{current_date}/")
         
     except KeyboardInterrupt:
         print("\n処理が中断されました。")
