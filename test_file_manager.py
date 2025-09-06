@@ -25,14 +25,17 @@ class TestFileManager:
     
     def test_get_current_date_string(self):
         """現在日付の文字列取得テスト"""
-        # Arrange & Act & Assert
-        with patch('datetime.datetime') as mock_datetime:
-            mock_datetime.now.return_value = datetime(2025, 9, 6)
-            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+        # Arrange
+        test_date = datetime(2025, 12, 25)
+        expected_result = "20251225"
+        
+        # Act & Assert
+        with patch('file_manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = test_date
             
             from file_manager import get_current_date_string
             result = get_current_date_string()
-            assert result == "20250906"
+            assert result == expected_result
     
     def test_ensure_data_directory_exists(self):
         """データディレクトリの存在確認・作成テスト"""

@@ -70,7 +70,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)" || exit 1
 
 # より良いシグナルハンドリングのためexec形式を使用
-CMD ["python", "main.py", "--skip-audio"]
+CMD ["python", "main.py"]
 
 # エントリーポイントの使用例:
 # 完全な処理（音声生成まで）を実行したい場合:

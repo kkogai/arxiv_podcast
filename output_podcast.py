@@ -72,13 +72,14 @@ def validate_script_format(script: str) -> bool:
     return True
 
 
-def generate_audio_from_script(script: str, output_filename: str) -> bool:
+def generate_audio_from_script(script: str, output_filename: str, output_dir: str = None) -> bool:
     """
     台本から音声ファイルを生成する
     
     Args:
         script (str): ポッドキャスト台本
         output_filename (str): 出力ファイル名（拡張子なし）
+        output_dir (str, optional): 出力ディレクトリ（指定しない場合は現在のディレクトリ）
         
     Returns:
         bool: 成功した場合True
@@ -155,7 +156,10 @@ def generate_audio_from_script(script: str, output_filename: str) -> bool:
                     file_extension = ".wav"
                     data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
                 
-                final_filename = f"{output_filename}_{file_index:03d}{file_extension}"
+                if output_dir:
+                    final_filename = os.path.join(output_dir, f"{output_filename}_{file_index:03d}{file_extension}")
+                else:
+                    final_filename = f"{output_filename}_{file_index:03d}{file_extension}"
                 save_binary_file(final_filename, data_buffer)
                 file_index += 1
             else:
